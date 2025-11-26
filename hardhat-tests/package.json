@@ -1,0 +1,19 @@
+{
+  "name": "hardhat-tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "chai": "^6.2.1",
+    "chai-as-promised": "^8.0.2",
+    "ethers": "^5.8.0",
+    "hardhat": "^2.19.0"
+  }
+}
