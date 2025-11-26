@@ -117,10 +117,19 @@ dafny-evm-compiler/
 │   ├── translator/      # Yul code generator
 │   ├── compiler/        # EVM bytecode compiler
 │   └── dafny_compiler.py
+├── docs/
+│   ├── sessions/        # Session notes: YYYY-MM-DD-HHMM-[session-name].md
+│   ├── planning/        # Planning documents
+│   └── verification/    # Verification-related documentation
 ├── examples/            # Example contracts
 ├── tests/              # Test suite
 └── cli.py              # Command-line interface
 ```
+
+**Documentation Naming Convention:**
+- Session notes use format: `YYYY-MM-DD-HHMM-[session-name].md`
+- Example: `2025-11-26-1905-nested-mappings.md`
+- Time uses 24-hour format with hyphens (no colons for filesystem compatibility)
 
 ## Testing
 

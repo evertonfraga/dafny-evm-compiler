@@ -43,6 +43,10 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
+# Nodejs
+node_modules
+
+
 # Documentation (except main files)
 *.md
 *.txt
