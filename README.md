@@ -1,8 +1,8 @@
 # Dafny EVM Compiler
 
-Compile formally verified Dafny smart contracts to EVM bytecode. Leverages Dafny's proof capabilities to ensure correctness before deployment.
+An experimental compiler that translates Dafny smart contracts to EVM bytecode. Explores the integration of formal verification with smart contract development.
 
-**Status:** 80% Solidity parity - Production-ready for real DeFi development
+**Status:** Experimental - Research prototype with core Solidity feature support
 
 ## Architecture
 
@@ -63,26 +63,22 @@ Supported features:
 - Boolean operations
 - Address type
 - Bytes types (bytes, bytes32)
-- **Structs** (`struct Name { field: type }`)
-- **Arrays** (`array<type>`) with push/pop/length
-- **Mappings** (`mapping<keyType, valueType>`)
-- **Multiple return values** (`returns (a: uint256, b: uint256)`)
+- Structs (declaration and field access)
+- Arrays (dynamic arrays with push/pop/length)
+- Mappings (single and nested)
+- Multiple return values
 - State variables (mapped to storage)
 - Methods with preconditions/postconditions
-- **Control flow** (if/else, for, while loops)
-- **Global variables** (msg.sender, msg.value, block.timestamp, etc.)
-- **Payable methods** (can receive Ether)
-- **Events** (logging and monitoring)
-- **Inter-contract calls** (address.call, delegatecall, staticcall)
-- **Library imports** (parsing support)
-- **Built-in functions** (keccak256, gasleft, etc.)
-- **Custom modifiers** (onlyOwner, whenNotPaused, etc.)
-- **Visibility modifiers** (public, private, internal, external)
-- **State mutability** (view, pure, payable)
-- **Inheritance** (parsing support)
-- **ABI generation** (JSON ABI output)
+- Control flow (if/else, for, while loops)
+- Global variables (msg.sender, msg.value, block.timestamp, etc.)
+- Payable methods
+- Events (declaration and emission)
+- Custom modifiers (onlyOwner, whenNotPaused, etc.)
+- Visibility modifiers (public, private, internal, external)
+- State mutability (view, pure, payable)
+- ABI generation (JSON ABI output)
 - Assertions and requires
-- Modulo operator (%)
+- Basic arithmetic operations including modulo (%)
 
 Example:
 ```dafny
@@ -143,19 +139,17 @@ python -m pytest tests/
 - [x] Storage variable support
 - [x] Method dispatch
 - [x] Precondition/postcondition enforcement
-- [x] Arrays and mappings
+- [x] Arrays and mappings (including nested)
 - [x] Events
 - [x] Payable methods
-- [x] Library imports (parsing)
 - [x] Custom modifiers
 - [x] Visibility modifiers
 - [x] State mutability
 - [x] ABI generation
-- [ ] Full inheritance
+- [ ] Library imports (parsing only)
+- [ ] Full inheritance support
 - [ ] Interfaces
+- [ ] Inter-contract calls
 - [ ] Gas optimization passes
 - [ ] Formal verification of translator
 
-## License
-
-MIT
