@@ -34,7 +34,9 @@ class ABIGenerator:
         
         # Add methods
         for method in contract.methods:
-            abi.append(self._method_to_abi(method))
+            # Only include public and external methods in ABI
+            if method.visibility in ['public', 'external']:
+                abi.append(self._method_to_abi(method))
         
         # Add events
         for event in contract.events:
@@ -56,23 +58,27 @@ class ABIGenerator:
     
     def _event_to_abi(self, event: Event) -> Dict[str, Any]:
         """Convert an Event to ABI event entry"""
+        inputs = []
+        for i, param in enumerate(event.params):
+            is_indexed = event.indexed[i] if i < len(event.indexed) else False
+            param_abi = self._param_to_abi(param)
+            param_abi["indexed"] = is_indexed
+            inputs.append(param_abi)
+        
         return {
             "type": "event",
             "name": event.name,
-            "inputs": [self._param_to_abi(p, indexed=False) for p in event.params],
+            "inputs": inputs,
             "anonymous": False
         }
     
-    def _param_to_abi(self, param: Variable, indexed: bool = False) -> Dict[str, Any]:
+    def _param_to_abi(self, param: Variable) -> Dict[str, Any]:
         """Convert a parameter to ABI input/output format"""
         entry = {
             "name": param.name,
             "type": self._type_to_solidity(param.type),
             "internalType": self._type_to_solidity(param.type)
         }
-        
-        if indexed:
-            entry["indexed"] = True
         
         return entry
     

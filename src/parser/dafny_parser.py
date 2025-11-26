@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from .dafny_ast import *
 
 class DafnyParser:
@@ -10,9 +10,11 @@ class DafnyParser:
     
     def parse(self) -> Contract:
         contract_name, base_class = self._extract_contract_name()
+        imports = self._extract_imports()
         libraries = self._extract_libraries()
         structs = self._extract_structs()
         fields = self._extract_fields()
+        constants = self._extract_constants()
         events = self._extract_events()
         errors = self._extract_errors()
         modifiers = self._extract_modifiers()
@@ -26,6 +28,7 @@ class DafnyParser:
             fields=fields,
             methods=methods,
             invariants=invariants,
+            imports=imports,
             constructor=constructor,
             events=events,
             libraries=libraries,
@@ -34,7 +37,8 @@ class DafnyParser:
             modifiers=modifiers,
             errors=errors,
             receive_method=receive_method,
-            fallback_method=fallback_method
+            fallback_method=fallback_method,
+            constants=constants
         )
     
     def _extract_contract_name(self) -> tuple[str, Optional[str]]:
@@ -45,6 +49,18 @@ class DafnyParser:
         # Try without inheritance: class Contract
         match = re.search(r'class\s+(\w+)', self.source)
         return (match.group(1), None) if match else ("Contract", None)
+    
+    def _extract_imports(self) -> List[str]:
+        """Extract import statements (parsing only, not processed)."""
+        imports = []
+        for line in self.lines:
+            # import "path/to/file.dfy"
+            if match := re.match(r'\s*import\s+"([^"]+)"', line):
+                imports.append(match.group(1))
+            # import LibraryName
+            elif match := re.match(r'\s*import\s+(\w+)', line):
+                imports.append(match.group(1))
+        return imports
     
     def _extract_libraries(self) -> List[Library]:
         libraries = []
@@ -108,6 +124,27 @@ class DafnyParser:
                 name, type_str = match.groups()
                 fields.append(Variable(name, self._parse_type(type_str)))
         return fields
+    
+    def _extract_constants(self) -> Dict[str, Any]:
+        """Extract ghost constants for verification"""
+        constants = {}
+        for line in self.lines:
+            # ghost const NAME: type := value
+            if match := re.match(r'\s*ghost\s+const\s+(\w+)\s*:\s*\w+\s*:=\s*(.+)', line):
+                name = match.group(1)
+                value_str = match.group(2).strip()
+                # Parse the value (simple int/bool for now)
+                try:
+                    value = int(value_str)
+                except ValueError:
+                    if value_str.lower() == 'true':
+                        value = True
+                    elif value_str.lower() == 'false':
+                        value = False
+                    else:
+                        value = value_str
+                constants[name] = value
+        return constants
     
     def _extract_events(self) -> List[Event]:
         events = []
@@ -438,10 +475,20 @@ class DafnyParser:
     def _parse_statement(self, line: str) -> Optional[Statement]:
         line = line.rstrip(';').strip()
         
+        # var name : type := expr
         if match := re.match(r'var\s+(\w+)\s*:\s*(\w+)\s*:=\s*(.+)', line):
             name, type_str, expr = match.groups()
             return VarDecl(
                 Variable(name, self._parse_type(type_str)),
+                self._parse_expression(expr)
+            )
+        
+        # var name := expr (type inference)
+        if match := re.match(r'var\s+(\w+)\s*:=\s*(.+)', line):
+            name, expr = match.groups()
+            # Use uint256 as default type for type inference
+            return VarDecl(
+                Variable(name, DafnyType(Type.UINT256)),
                 self._parse_expression(expr)
             )
         
@@ -715,6 +762,19 @@ class DafnyParser:
     def _parse_expression(self, expr: str) -> Expression:
         expr = expr.strip()
         
+        # Handle parentheses - strip outer parens if balanced
+        if expr.startswith('(') and expr.endswith(')'):
+            # Check if these are the outermost balanced parens
+            depth = 0
+            for i, char in enumerate(expr):
+                if char == '(':
+                    depth += 1
+                elif char == ')':
+                    depth -= 1
+                    if depth == 0 and i == len(expr) - 1:
+                        # Outer parens are balanced, strip them
+                        return self._parse_expression(expr[1:-1])
+        
         # Functional map update: map[key := value] or chained map[k1 := v1][k2 := v2]
         # MUST be checked before binary operators to avoid splitting on operators inside updates
         if '[' in expr and ':=' in expr and ']' in expr:
@@ -765,15 +825,23 @@ class DafnyParser:
             return Literal(expr == 'true', DafnyType(Type.BOOL))
         
         # Binary operators - check before other patterns
+        # Parse with proper precedence and parentheses handling
         for op in ['==', '!=', '<=', '>=', '<', '>', '+', '-', '*', '/', '%', '&&', '||', ' in ']:
-            if op in expr:
-                parts = expr.split(op, 1)
-                if len(parts) == 2:
-                    left = parts[0].strip()
-                    right = parts[1].strip()
-                    # Make sure it's not part of a function call or array access
-                    if '(' not in left or left.count('(') == left.count(')'):
+            # Find operator at depth 0 (not inside parens/brackets)
+            depth = 0
+            i = 0
+            while i < len(expr):
+                if expr[i] in '([':
+                    depth += 1
+                elif expr[i] in ')]':
+                    depth -= 1
+                elif depth == 0 and expr[i:i+len(op)] == op:
+                    # Found operator at top level
+                    left = expr[:i].strip()
+                    right = expr[i+len(op):].strip()
+                    if left and right:  # Make sure both sides exist
                         return BinaryOp(op, self._parse_expression(left), self._parse_expression(right))
+                i += 1
         
         # Contract calls: addr.call(data) - check before struct access
         if match := re.match(r'(.+?)\.call\{value:\s*(.+?)\}\((.+?)\)', expr):

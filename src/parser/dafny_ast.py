@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 from enum import Enum
 
 class Type(Enum):
@@ -231,6 +231,7 @@ class Contract:
     fields: List[Variable]
     methods: List[Method]
     invariants: List[Expression]
+    imports: List[str] = field(default_factory=list)
     constructor: Optional[Method] = None
     events: List[Event] = field(default_factory=list)
     libraries: List[Library] = field(default_factory=list)
@@ -240,3 +241,4 @@ class Contract:
     errors: List[CustomError] = field(default_factory=list)
     receive_method: Optional[Method] = None
     fallback_method: Optional[Method] = None
+    constants: Dict[str, Any] = field(default_factory=dict)  # Ghost constants

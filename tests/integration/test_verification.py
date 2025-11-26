@@ -18,10 +18,10 @@ class TestFormalVerification(unittest.TestCase):
     def test_valid_contract_verifies(self):
         """Test that a correct contract passes verification"""
         source = """
-type uint256 = x: int | 0 <= x < 0x10000000000000000000000000000000000000000000000000000000000000000
+newtype Uint256 = x: int | 0 <= x <= 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 class SimpleContract {
-  var value: uint256
+  var value: Uint256
 
   constructor()
     ensures value == 0
@@ -29,7 +29,7 @@ class SimpleContract {
     value := 0;
   }
 
-  method setValue(v: uint256)
+  method setValue(v: Uint256)
     modifies this
     ensures value == v
   {
@@ -45,12 +45,12 @@ class SimpleContract {
     def test_invalid_contract_fails_verification(self):
         """Test that an incorrect contract fails verification"""
         source = """
-type uint256 = x: int | 0 <= x < 0x10000000000000000000000000000000000000000000000000000000000000000
+newtype Uint256 = x: int | 0 <= x <= 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 class BrokenContract {
-  var value: uint256
+  var value: Uint256
 
-  method broken(v: uint256)
+  method broken(v: Uint256)
     modifies this
     ensures value == v + 1  // Wrong postcondition!
   {
@@ -66,10 +66,10 @@ class BrokenContract {
     def test_compiler_integration(self):
         """Test that compiler integrates verification"""
         source = """
-type uint256 = x: int | 0 <= x < 0x10000000000000000000000000000000000000000000000000000000000000000
+newtype Uint256 = x: int | 0 <= x <= 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 class VerifiedContract {
-  var balance: uint256
+  var balance: Uint256
 
   constructor()
     ensures balance == 100
@@ -77,7 +77,7 @@ class VerifiedContract {
     balance := 100;
   }
 
-  method getBalance() returns (b: uint256)
+  method getBalance() returns (b: Uint256)
     ensures b == balance
   {
     return balance;
@@ -94,10 +94,10 @@ class VerifiedContract {
     def test_compiler_rejects_unverified(self):
         """Test that compiler rejects contracts that fail verification"""
         source = """
-type uint256 = x: int | 0 <= x < 0x10000000000000000000000000000000000000000000000000000000000000000
+newtype Uint256 = x: int | 0 <= x <= 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 class BadContract {
-  var value: uint256
+  var value: Uint256
 
   method bad()
     modifies this
@@ -117,10 +117,10 @@ class BadContract {
     def test_skip_verification_flag(self):
         """Test that verification can be skipped"""
         source = """
-type uint256 = x: int | 0 <= x < 0x10000000000000000000000000000000000000000000000000000000000000000
+newtype Uint256 = x: int | 0 <= x <= 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 class BadContract {
-  var value: uint256
+  var value: Uint256
 
   method bad()
     modifies this

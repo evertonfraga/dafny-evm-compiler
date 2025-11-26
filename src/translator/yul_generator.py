@@ -8,6 +8,7 @@ class YulGenerator:
         self.next_slot = 0
         self.event_signatures = {}
         self.error_signatures = {}
+        self.current_method = None  # Track current method for return handling
         self.yul_builtins = {
             'add', 'sub', 'mul', 'div', 'mod', 'lt', 'gt', 'eq',
             'iszero', 'and', 'or', 'xor', 'not', 'shl', 'shr', 'sar',
@@ -38,6 +39,7 @@ class YulGenerator:
         self.error_signatures = {}
         self.struct_layouts = {}
         self.contract = contract  # Store contract for modifier access
+        self.constants = contract.constants  # Store ghost constants
         
         self._compute_struct_layouts(contract.structs)
         self._allocate_storage(contract.fields)
@@ -220,20 +222,43 @@ class YulGenerator:
         return code
     
     def _generate_method(self, method: Method) -> str:
+        self.current_method = method  # Set context
         safe_name = self._safe_method_name(method.name)
-        code = f"      function {safe_name}() {{\n"
         
-        # Non-payable check
-        if not method.is_payable:
+        # For internal/private methods, generate proper function signatures with returns
+        is_internal = method.visibility in ['internal', 'private']
+        
+        if is_internal:
+            # Generate internal function with parameters and return values
+            params = ', '.join(param.name for param in method.params)
+            
+            returns_sig = ""
+            if method.returns:
+                if isinstance(method.returns, list):
+                    return_names = ', '.join(self._safe_method_name(r.name) for r in method.returns)
+                    returns_sig = f" -> {return_names}"
+                else:
+                    # Single unnamed return
+                    returns_sig = " -> result"
+            
+            code = f"      function {safe_name}({params}){returns_sig} {{\n"
+        else:
+            # External/public methods use calldata
+            code = f"      function {safe_name}() {{\n"
+        
+        # Non-payable check (only for external/public)
+        if not is_internal and not method.is_payable:
             code += f"        if callvalue() {{ revert(0, 0) }}\n"
         
-        offset = 4
-        for i, param in enumerate(method.params):
-            code += f"        let {param.name} := calldataload({offset})\n"
-            offset += 32
+        # Load parameters from calldata (only for external/public)
+        if not is_internal:
+            offset = 4
+            for i, param in enumerate(method.params):
+                code += f"        let {param.name} := calldataload({offset})\n"
+                offset += 32
         
-        # Declare return variables if they have names
-        if method.returns:
+        # Declare return variables if they have names (only for external/public)
+        if not is_internal and method.returns:
             if isinstance(method.returns, list):
                 for ret_var in method.returns:
                     var_name = self._safe_method_name(ret_var.name)
@@ -259,7 +284,8 @@ class YulGenerator:
         
         # Add implicit return for void methods (no explicit return in body)
         has_return = any(isinstance(stmt, Return) for stmt in method.body)
-        if not has_return:
+        if not has_return and not is_internal:
+            # Only add implicit returns for external/public methods
             if method.returns:
                 # Has return type but no return statement - return default values
                 if isinstance(method.returns, list):
@@ -273,6 +299,7 @@ class YulGenerator:
                 code += "    return(0, 0)\n"
         
         code += f"      }}\n\n"
+        self.current_method = None  # Clear context
         return code
     
     def _generate_statement(self, stmt: Statement, indent: int) -> str:
@@ -481,45 +508,73 @@ class YulGenerator:
             return f"{ind}selfdestruct({recipient})\n"
         
         if isinstance(stmt, Return):
+            # Check if we're in an internal/private method
+            is_internal = self.current_method and self.current_method.visibility in ['internal', 'private']
+            
             if stmt.value:
                 # Check if multiple returns
                 if isinstance(stmt.value, list):
-                    code = ""
-                    for i, val in enumerate(stmt.value):
-                        code += f"{ind}mstore({i * 32}, {self._generate_expr(val)})\n"
-                    return code + f"{ind}return(0, {len(stmt.value) * 32})\n"
+                    if is_internal:
+                        # For internal methods, assign to return variables
+                        code = ""
+                        for i, (val, ret_var) in enumerate(zip(stmt.value, self.current_method.returns)):
+                            var_name = self._safe_method_name(ret_var.name)
+                            code += f"{ind}{var_name} := {self._generate_expr(val)}\n"
+                        return code
+                    else:
+                        # For external methods, use memory and return
+                        code = ""
+                        for i, val in enumerate(stmt.value):
+                            code += f"{ind}mstore({i * 32}, {self._generate_expr(val)})\n"
+                        return code + f"{ind}return(0, {len(stmt.value) * 32})\n"
                 else:
                     val_expr = self._generate_expr(stmt.value)
                     
-                    # Handle if expressions
-                    if val_expr.startswith("IF_EXPR("):
-                        depth = 0
-                        parts = []
-                        current = ""
-                        for char in val_expr[8:-1]:  # Skip "IF_EXPR(" and ")"
-                            if char in '([':
-                                depth += 1
-                                current += char
-                            elif char in ')]':
-                                depth -= 1
-                                current += char
-                            elif char == ',' and depth == 0:
-                                parts.append(current.strip())
-                                current = ""
+                    if is_internal:
+                        # For internal methods with single return, assign to result
+                        if self.current_method.returns:
+                            if isinstance(self.current_method.returns, list) and len(self.current_method.returns) > 0:
+                                var_name = self._safe_method_name(self.current_method.returns[0].name)
+                                return f"{ind}{var_name} := {val_expr}\n"
                             else:
-                                current += char
-                        if current:
-                            parts.append(current.strip())
+                                # Unnamed return
+                                return f"{ind}result := {val_expr}\n"
+                        return ""
+                    else:
+                        # For external methods, use memory and return
+                        # Handle if expressions
+                        if val_expr.startswith("IF_EXPR("):
+                            depth = 0
+                            parts = []
+                            current = ""
+                            for char in val_expr[8:-1]:  # Skip "IF_EXPR(" and ")"
+                                if char in '([':
+                                    depth += 1
+                                    current += char
+                                elif char in ')]':
+                                    depth -= 1
+                                    current += char
+                                elif char == ',' and depth == 0:
+                                    parts.append(current.strip())
+                                    current = ""
+                                else:
+                                    current += char
+                            if current:
+                                parts.append(current.strip())
+                            
+                            if len(parts) == 3:
+                                cond, then_val, else_val = parts
+                                code = f"{ind}let _return_val := 0\n"
+                                code += f"{ind}if {cond} {{ _return_val := {then_val} }}\n"
+                                code += f"{ind}if iszero({cond}) {{ _return_val := {else_val} }}\n"
+                                code += f"{ind}mstore(0, _return_val)\n{ind}return(0, 32)\n"
+                                return code
                         
-                        if len(parts) == 3:
-                            cond, then_val, else_val = parts
-                            code = f"{ind}let _return_val := 0\n"
-                            code += f"{ind}if {cond} {{ _return_val := {then_val} }}\n"
-                            code += f"{ind}if iszero({cond}) {{ _return_val := {else_val} }}\n"
-                            code += f"{ind}mstore(0, _return_val)\n{ind}return(0, 32)\n"
-                            return code
-                    
-                    return f"{ind}mstore(0, {val_expr})\n{ind}return(0, 32)\n"
+                        return f"{ind}mstore(0, {val_expr})\n{ind}return(0, 32)\n"
+            
+            # No return value
+            if is_internal:
+                return ""  # Internal functions just exit
             return f"{ind}return(0, 0)\n"
         
         if isinstance(stmt, Assert):
@@ -590,6 +645,9 @@ class YulGenerator:
             return str(expr.value).lower() if isinstance(expr.value, bool) else str(expr.value)
         
         if isinstance(expr, VarRef):
+            # Check if it's a ghost constant
+            if hasattr(self, 'constants') and expr.name in self.constants:
+                return str(self.constants[expr.name])
             if expr.name in self.storage_slots:
                 return f"sload({self.storage_slots[expr.name]})"
             return expr.name

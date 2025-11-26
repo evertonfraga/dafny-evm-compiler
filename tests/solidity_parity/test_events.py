@@ -8,6 +8,9 @@ They are compiled to EVM LOG opcodes and included in the ABI.
 import unittest
 import json
 from src.dafny_compiler import DafnyEVMCompiler
+from src.parser.dafny_parser import DafnyParser
+from src.translator.yul_generator import YulGenerator
+from src.compiler.abi_generator import ABIGenerator
 
 
 class TestEvents(unittest.TestCase):

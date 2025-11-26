@@ -15,7 +15,6 @@ class TestGhostCode(unittest.TestCase):
     def setUp(self):
         self.compiler = DafnyEVMCompiler(verify=False)
     
-    @unittest.skip("Ghost const not yet implemented")
     def test_ghost_const(self):
         """Test ghost const for verification-only constants."""
         code = """

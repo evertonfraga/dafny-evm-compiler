@@ -39,23 +39,6 @@ Generate Yul only:
 python cli.py examples/SimpleToken.dfy --yul-only
 ```
 
-## Testing with Hardhat
-
-Test compiled contracts using Hardhat:
-
-```bash
-# Compile for Hardhat
-python3 compile_for_hardhat.py examples/SimpleToken.dfy
-
-# Run tests
-cd hardhat-tests && npx hardhat test
-
-# Or use the convenience script
-./test_contract.sh examples/SimpleToken.dfy
-```
-
-See [HARDHAT_TESTING.md](HARDHAT_TESTING.md) for complete testing guide.
-
 ## Dafny Subset for EVM
 
 Supported features:
@@ -146,10 +129,12 @@ python -m pytest tests/
 - [x] Visibility modifiers
 - [x] State mutability
 - [x] ABI generation
-- [ ] Library imports (parsing only)
-- [ ] Full inheritance support
-- [ ] Interfaces
-- [ ] Inter-contract calls
+- [x] Library imports (parsing only)
+- [x] Basic inheritance support (parsing)
+- [x] Interfaces (parsing)
+- [x] Inter-contract calls (low-level: call, delegatecall, staticcall)
+- [ ] Full inheritance with field/method merging
+- [ ] High-level typed contract calls
 - [ ] Gas optimization passes
 - [ ] Formal verification of translator
 

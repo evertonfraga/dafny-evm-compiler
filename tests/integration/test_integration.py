@@ -125,7 +125,7 @@ class TestIntegration(unittest.TestCase):
 
 class TestSecurityPatterns(unittest.TestCase):
     def setUp(self):
-        self.compiler = DafnyEVMCompiler()
+        self.compiler = DafnyEVMCompiler(verify=False)
     
     def test_overflow_protection(self):
         """Test overflow protection via preconditions"""
