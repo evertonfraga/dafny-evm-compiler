@@ -4,7 +4,7 @@ class Counter {
 
   invariant count <= maxValue
 
-  method constructor()
+  constructor()
     ensures count == 0
     ensures maxValue == 1000
   {

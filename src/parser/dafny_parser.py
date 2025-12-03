@@ -333,6 +333,14 @@ class DafnyParser:
             match = re.match(r'\s*(?:(?:public|private|internal|external|view|pure|payable)\s+)*method\s+(\w+)\s*\((.*?)\)', line)
             if match:
                 name = match.group(1)
+                
+                # Reject 'method constructor' - constructors must use 'constructor()' syntax
+                if name == "constructor":
+                    raise SyntaxError(
+                        f"Line {i+1}: Constructor cannot be declared as a method.\n"
+                        f"Use 'constructor()' instead of 'method constructor()'.\n"
+                        f"Constructors run once during deployment and cannot be called after."
+                    )
                 params_str = match.group(2)
                 
                 # Extract modifiers after the closing paren (excluding keywords)
