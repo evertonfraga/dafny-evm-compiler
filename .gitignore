@@ -46,6 +46,20 @@ dmypy.json
 # Nodejs
 node_modules
 
+# Compiled bytecode and build artifacts
+output/
+build/
+
+# Foundry artifacts
+tests/foundry/out/
+tests/foundry/cache/
+tests/foundry/broadcast/
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Documentation (except main files)
 *.md
@@ -53,3 +67,6 @@ node_modules
 !README.md
 !CONTRIBUTING.md
 !LICENSE.md
+
+# Session documentation
+docs/sessions/
