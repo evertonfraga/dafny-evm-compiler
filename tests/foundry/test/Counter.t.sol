@@ -8,7 +8,7 @@ contract CounterTest is Test {
     
     function setUp() public {
         // Deploy Counter (constructor runs during deployment)
-        string memory path = "../output/Counter/Counter.bin";
+        string memory path = "../../output/Counter/Counter.bin";
         string memory hexCode = vm.readFile(path);
         bytes memory bytecode = vm.parseBytes(hexCode);
         

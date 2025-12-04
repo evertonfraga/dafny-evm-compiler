@@ -9,7 +9,7 @@ contract MyTokenTest is Test {
     address bob = address(0x2);
     
     function setUp() public {
-        string memory path = "../output/MyToken/MyToken.bin";
+        string memory path = "../../output/MyToken/MyToken.bin";
         string memory hexCode = vm.readFile(path);
         bytes memory bytecode = vm.parseBytes(hexCode);
         

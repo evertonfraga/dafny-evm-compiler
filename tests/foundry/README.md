@@ -4,17 +4,17 @@ Integration tests for Dafny-compiled smart contracts using Foundry.
 
 ## Setup
 
-Foundry is installed at `~/.foundry/bin/`. Tests read compiled bytecode from `../output/`.
+Foundry is installed at `~/.foundry/bin/`. Tests read compiled bytecode from `../../output/`.
 
 ## Running Tests
 
 ```bash
 # Compile Dafny contracts first
-cd ..
+cd ../..
 python3 compile_for_foundry.py
 
 # Run all tests
-cd foundry-tests
+cd tests/foundry
 forge test
 
 # Run with verbosity

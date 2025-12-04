@@ -8,7 +8,7 @@ contract SimpleTokenTest is Test {
     
     function setUp() public {
         // Deploy SimpleToken (constructor runs during deployment)
-        string memory path = "../output/SimpleToken/SimpleToken.bin";
+        string memory path = "../../output/SimpleToken/SimpleToken.bin";
         string memory hexCode = vm.readFile(path);
         bytes memory bytecode = vm.parseBytes(hexCode);
         
