@@ -21,6 +21,11 @@ object "ERC20Verified" {
   }
   object "runtime" {
     code {
+      if lt(calldatasize(), 4) {
+        // Check for receive function (no calldata, has value)
+        revert(0, 0)
+      }
+
       let selector := shr(224, calldataload(0))
       if eq(selector, 0xa9059cbb) {
         transfer()
@@ -60,6 +65,14 @@ object "ERC20Verified" {
       }
       revert(0, 0)
 
+      // Initialize free memory pointer
+      mstore(64, 128)
+
+      function allocate_memory(size) -> ptr {
+        ptr := mload(64)
+        mstore(0x40, add(ptr, size))
+      }
+
       function keccak256_mapping(slot, key) -> result {
         mstore(0, slot)
         mstore(32, key)
@@ -87,8 +100,9 @@ object "ERC20Verified" {
         if iszero(eq(sload(2), false)) { revert(0, 0) }
     sstore(keccak256_mapping(3, caller()), sub(sload(keccak256_mapping(3, caller())), amount))
     sstore(keccak256_mapping(3, to), add(sload(keccak256_mapping(3, to)), amount))
-    mstore(0, true)
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, true)
+    return(_return_ptr, 32)
       }
 
       function approve() {
@@ -99,8 +113,9 @@ object "ERC20Verified" {
         if iszero(iszero(eq(spender, 0))) { revert(0, 0) }
         if iszero(eq(sload(2), false)) { revert(0, 0) }
     sstore(keccak256_mapping(keccak256_mapping(4, caller()), spender), amount)
-    mstore(0, true)
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, true)
+    return(_return_ptr, 32)
       }
 
       function transferFrom() {
@@ -117,8 +132,9 @@ object "ERC20Verified" {
     sstore(keccak256_mapping(3, from), sub(sload(keccak256_mapping(3, from)), amount))
     sstore(keccak256_mapping(3, to), add(sload(keccak256_mapping(3, to)), amount))
     sstore(keccak256_mapping(keccak256_mapping(4, from), caller()), sub(sload(keccak256_mapping(keccak256_mapping(4, from), caller())), amount))
-    mstore(0, true)
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, true)
+    return(_return_ptr, 32)
       }
 
       function mint() {
@@ -131,8 +147,9 @@ object "ERC20Verified" {
         if iszero(eq(sload(2), false)) { revert(0, 0) }
     sstore(0, add(sload(0), amount))
     sstore(keccak256_mapping(3, to), add(sload(keccak256_mapping(3, to)), amount))
-    mstore(0, true)
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, true)
+    return(_return_ptr, 32)
       }
 
       function burn() {
@@ -147,8 +164,9 @@ object "ERC20Verified" {
         if iszero(eq(sload(2), false)) { revert(0, 0) }
     sstore(0, sub(sload(0), amount))
     sstore(keccak256_mapping(3, from), sub(sload(keccak256_mapping(3, from)), amount))
-    mstore(0, true)
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, true)
+    return(_return_ptr, 32)
       }
 
       function pause() {
@@ -171,8 +189,9 @@ object "ERC20Verified" {
         if callvalue() { revert(0, 0) }
         let account := calldataload(4)
         let fn_balance := 0
-    mstore(0, sload(keccak256_mapping(3, account)))
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, sload(keccak256_mapping(3, account)))
+    return(_return_ptr, 32)
       }
 
       function allowance() {
@@ -180,29 +199,33 @@ object "ERC20Verified" {
         let tokenOwner := calldataload(4)
         let spender := calldataload(36)
         let remaining := 0
-    mstore(0, sload(keccak256_mapping(keccak256_mapping(4, tokenOwner), spender)))
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, sload(keccak256_mapping(keccak256_mapping(4, tokenOwner), spender)))
+    return(_return_ptr, 32)
       }
 
       function getTotalSupply() {
         if callvalue() { revert(0, 0) }
         let supply := 0
-    mstore(0, sload(0))
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, sload(0))
+    return(_return_ptr, 32)
       }
 
       function getOwner() {
         if callvalue() { revert(0, 0) }
         let ownerAddr := 0
-    mstore(0, sload(1))
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, sload(1))
+    return(_return_ptr, 32)
       }
 
       function isPaused() {
         if callvalue() { revert(0, 0) }
         let status := 0
-    mstore(0, sload(2))
-    return(0, 32)
+    let _return_ptr := allocate_memory(32)
+    mstore(_return_ptr, sload(2))
+    return(_return_ptr, 32)
       }
 
     }
