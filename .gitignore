@@ -54,6 +54,7 @@ build/
 tests/foundry/out/
 tests/foundry/cache/
 tests/foundry/broadcast/
+tests/foundry/lib/
 
 # Editor files
 *.swp
