@@ -19,14 +19,20 @@ contract DeployERC20Verified is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
+        // Constructor parameter: initialSupply = 1,000,000 tokens
+        uint256 initialSupply = 1_000_000;
+        bytes memory constructorArgs = abi.encode(initialSupply);
+        bytes memory deploymentBytecode = abi.encodePacked(bytecode, constructorArgs);
+        
         // Deploy contract
         address deployed;
         assembly {
-            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+            deployed := create(0, add(deploymentBytecode, 0x20), mload(deploymentBytecode))
         }
         require(deployed != address(0), "Deployment failed");
         
         console.log("ERC20Verified deployed to:", deployed);
+        console.log("Initial supply:", initialSupply);
         
         // Verify deployment by calling totalSupply()
         (bool success, bytes memory data) = deployed.staticcall(
