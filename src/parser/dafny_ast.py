@@ -34,6 +34,10 @@ class DafnyType:
 class Variable:
     name: str
     type: DafnyType
+    visibility: str = "internal"  # public, private, internal
+    is_public: bool = False
+    visibility: str = "internal"  # public, private, internal
+    is_public: bool = False
 
 @dataclass
 class Expression:

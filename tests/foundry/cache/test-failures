@@ -1,1 +1,1 @@
-testTransferBetweenAccounts
+test_BalancesGetter|test_BalancesGetterDifferentAddresses|test_TotalSupplyGetter

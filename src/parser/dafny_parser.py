@@ -111,18 +111,24 @@ class DafnyParser:
                 continue
             
             # Only extract vars at class level (not in methods)
-            # Array: var name: array<type>
-            if match := re.match(r'\s*var\s+(\w+)\s*:\s*array<(\w+)>', line):
-                name, elem_type = match.groups()
-                fields.append(Variable(name, DafnyType(Type.ARRAY, element_type=self._parse_type(elem_type))))
-            # Mapping: var name: mapping<keyType, valueType>
-            elif match := re.match(r'\s*var\s+(\w+)\s*:\s*mapping<(\w+),\s*(\w+)>', line):
-                name, key_type, val_type = match.groups()
-                fields.append(Variable(name, DafnyType(Type.MAPPING, key_type=self._parse_type(key_type), value_type=self._parse_type(val_type))))
-            # Simple type
-            elif match := re.match(r'\s*var\s+(\w+)\s*:\s*(\w+)', line):
-                name, type_str = match.groups()
-                fields.append(Variable(name, self._parse_type(type_str)))
+            # Array: public var name: array<type>
+            if match := re.match(r'\s*(public\s+)?var\s+(\w+)\s*:\s*array<(\w+)>', line):
+                public_prefix, name, elem_type = match.groups()
+                is_public = public_prefix is not None
+                fields.append(Variable(name, DafnyType(Type.ARRAY, element_type=self._parse_type(elem_type)), 
+                                     visibility="public" if is_public else "internal", is_public=is_public))
+            # Mapping: public var name: mapping<keyType, valueType>
+            elif match := re.match(r'\s*(public\s+)?var\s+(\w+)\s*:\s*mapping<(\w+),\s*(\w+)>', line):
+                public_prefix, name, key_type, val_type = match.groups()
+                is_public = public_prefix is not None
+                fields.append(Variable(name, DafnyType(Type.MAPPING, key_type=self._parse_type(key_type), value_type=self._parse_type(val_type)),
+                                     visibility="public" if is_public else "internal", is_public=is_public))
+            # Simple type: public var name: type
+            elif match := re.match(r'\s*(public\s+)?var\s+(\w+)\s*:\s*(\w+)', line):
+                public_prefix, name, type_str = match.groups()
+                is_public = public_prefix is not None
+                fields.append(Variable(name, self._parse_type(type_str),
+                                     visibility="public" if is_public else "internal", is_public=is_public))
         return fields
     
     def _extract_constants(self) -> Dict[str, Any]:

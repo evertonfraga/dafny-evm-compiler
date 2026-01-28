@@ -40,6 +40,8 @@ class YulGenerator:
         self.struct_layouts = {}
         self.contract = contract  # Store contract for modifier access
         self.constants = contract.constants  # Store ghost constants
+        self.free_memory_pointer = 0x40  # Standard free memory pointer location
+        self.next_free_memory = 0x80     # Start allocating after 0x80
         
         self._compute_struct_layouts(contract.structs)
         self._allocate_storage(contract.fields)
@@ -149,18 +151,28 @@ class YulGenerator:
     def _generate_dispatcher(self, methods: List[Method]) -> str:
         code = ""
         
+        # Calldata bounds checking
+        code += "      if lt(calldatasize(), 4) {\n"
+        code += "        // Check for receive function (no calldata, has value)\n"
+        
         # Check for receive function (no calldata, has value)
         if self.contract.receive_method:
-            code += "      if and(iszero(calldatasize()), callvalue()) {\n"
-            code += "        receive_fn()\n"
-            code += "        return(0, 0)\n"
-            code += "      }\n"
+            code += "        if callvalue() {\n"
+            code += "          receive_fn()\n"
+            code += "          return(0, 0)\n"
+            code += "        }\n"
         
         # Check for fallback function (no matching selector or no calldata)
         has_fallback = self.contract.fallback_method is not None
+        if has_fallback:
+            code += "        fallback_fn()\n"
+        else:
+            code += "        revert(0, 0)\n"
+        code += "      }\n\n"
         
         code += "      let selector := shr(224, calldataload(0))\n"
         
+        # Generate dispatch for regular methods
         for method in methods:
             if method.is_public:
                 sig = self._method_signature(method)
@@ -170,6 +182,10 @@ class YulGenerator:
                 code += f"        {safe_name}()\n"
                 code += f"      }}\n"
         
+        # Generate dispatch for getter methods
+        code += self._generate_getter_methods(self.contract.fields)
+        
+        # If no method matched, handle fallback or revert
         if has_fallback:
             code += "      fallback_fn()\n"
         else:
@@ -180,7 +196,17 @@ class YulGenerator:
     
     def _generate_methods(self, methods: List[Method]) -> str:
         code = ""
-        # Add helper function for mapping storage
+        # Initialize free memory pointer
+        code += "      // Initialize free memory pointer\n"
+        code += f"      mstore({self.free_memory_pointer}, {self.next_free_memory})\n\n"
+        
+        # Add helper function for memory allocation
+        code += "      function allocate_memory(size) -> ptr {\n"
+        code += f"        ptr := mload({self.free_memory_pointer})\n"
+        code += "        mstore(0x40, add(ptr, size))\n"
+        code += "      }\n\n"
+        
+        # Add helper function for mapping storage (always include since getters need it)
         code += "      function keccak256_mapping(slot, key) -> result {\n"
         code += "        mstore(0, slot)\n"
         code += "        mstore(32, key)\n"
@@ -207,6 +233,10 @@ class YulGenerator:
         if self.contract.fallback_method:
             code += self._generate_special_function(self.contract.fallback_method, "fallback_fn")
         
+        # Generate getter functions (they depend on helper functions above)
+        code += self._generate_getter_functions(self.contract.fields)
+        
+        # Generate regular methods
         for method in methods:
             code += self._generate_method(method)
         return code
@@ -219,6 +249,63 @@ class YulGenerator:
             code += self._generate_statement(stmt, indent=4)
         
         code += "      }\n\n"
+        return code
+    
+    def _generate_getter_methods(self, fields: List[Variable]) -> str:
+        code = ""
+        for field in fields:
+            if field.is_public:
+                getter_name = self._safe_method_name(field.name)
+                sig = f"{field.name}("
+                
+                if field.type.base == Type.MAPPING:
+                    # Mapping getter: takes key parameter
+                    key_type = field.type.key_type.base.value
+                    sig += f"{key_type})"
+                    selector = self._compute_selector(sig)
+                    
+                    code += f"      if eq(selector, {selector}) {{\n"
+                    code += f"        {getter_name}_getter()\n"
+                    code += f"      }}\n"
+                else:
+                    # Simple variable getter: no parameters
+                    sig += ")"
+                    selector = self._compute_selector(sig)
+                    
+                    code += f"      if eq(selector, {selector}) {{\n"
+                    code += f"        {getter_name}_getter()\n"
+                    code += f"      }}\n"
+        
+        return code
+    
+    def _generate_getter_functions(self, fields: List[Variable]) -> str:
+        code = ""
+        for field in fields:
+            if field.is_public:
+                getter_name = self._safe_method_name(field.name)
+                
+                if field.type.base == Type.MAPPING:
+                    # Mapping getter function
+                    code += f"      function {getter_name}_getter() {{\n"
+                    code += "        if callvalue() { revert(0, 0) }\n"
+                    code += "        let key := calldataload(4)\n"  # First parameter at offset 4
+                    slot = self.storage_slots[field.name]
+                    code += f"        let value := sload(keccak256_mapping({slot}, key))\n"
+                    code += "        let _return_ptr := allocate_memory(32)\n"
+                    code += "        mstore(_return_ptr, value)\n"
+                    code += "        return(_return_ptr, 32)\n"
+                    code += "      }\n\n"
+                else:
+                    # Simple variable getter function
+                    code += f"      function {getter_name}_getter() {{\n"
+                    code += "        if callvalue() { revert(0, 0) }\n"
+                    slot = self.storage_slots[field.name]
+                    code += f"        let value := sload({slot})\n"
+                    code += "        let _return_ptr := allocate_memory(32)\n"
+                    code += "        mstore(_return_ptr, value)\n"
+                    code += "        return(_return_ptr, 32)\n"
+                    code += "      }\n\n"
+        
         return code
     
     def _generate_method(self, method: Method) -> str:
@@ -289,11 +376,13 @@ class YulGenerator:
             if method.returns:
                 # Has return type but no return statement - return default values
                 if isinstance(method.returns, list):
-                    code += "    mstore(0, 0)\n"
-                    code += f"    return(0, {len(method.returns) * 32})\n"
+                    code += "    let _return_ptr := allocate_memory(32)\n"
+                    code += "    mstore(_return_ptr, 0)\n"
+                    code += f"    return(_return_ptr, {len(method.returns) * 32})\n"
                 else:
-                    code += "    mstore(0, 0)\n"
-                    code += "    return(0, 32)\n"
+                    code += "    let _return_ptr := allocate_memory(32)\n"
+                    code += "    mstore(_return_ptr, 0)\n"
+                    code += "    return(_return_ptr, 32)\n"
             else:
                 # Void method - return empty
                 code += "    return(0, 0)\n"
@@ -524,9 +613,11 @@ class YulGenerator:
                     else:
                         # For external methods, use memory and return
                         code = ""
+                        # Allocate memory for return values
+                        code += f"{ind}let _return_ptr := allocate_memory({len(stmt.value) * 32})\n"
                         for i, val in enumerate(stmt.value):
-                            code += f"{ind}mstore({i * 32}, {self._generate_expr(val)})\n"
-                        return code + f"{ind}return(0, {len(stmt.value) * 32})\n"
+                            code += f"{ind}mstore(add(_return_ptr, {i * 32}), {self._generate_expr(val)})\n"
+                        return code + f"{ind}return(_return_ptr, {len(stmt.value) * 32})\n"
                 else:
                     val_expr = self._generate_expr(stmt.value)
                     
@@ -567,10 +658,12 @@ class YulGenerator:
                                 code = f"{ind}let _return_val := 0\n"
                                 code += f"{ind}if {cond} {{ _return_val := {then_val} }}\n"
                                 code += f"{ind}if iszero({cond}) {{ _return_val := {else_val} }}\n"
-                                code += f"{ind}mstore(0, _return_val)\n{ind}return(0, 32)\n"
+                                code += f"{ind}let _return_ptr := allocate_memory(32)\n"
+                                code += f"{ind}mstore(_return_ptr, _return_val)\n"
+                                code += f"{ind}return(_return_ptr, 32)\n"
                                 return code
                         
-                        return f"{ind}mstore(0, {val_expr})\n{ind}return(0, 32)\n"
+                        return f"{ind}let _return_ptr := allocate_memory(32)\n{ind}mstore(_return_ptr, {val_expr})\n{ind}return(_return_ptr, 32)\n"
             
             # No return value
             if is_internal:
