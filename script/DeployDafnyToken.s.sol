@@ -3,10 +3,10 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 
-contract DeployERC20Verified is Script {
+contract DeployDafnyToken is Script {
     function run() external {
         // Read deployment bytecode
-        string memory path = "../../output/ERC20Verified/ERC20Verified.bin";
+        string memory path = "../../output/DafnyToken/DafnyToken.bin";
         bytes memory bytecode = vm.parseBytes(vm.readFile(path));
         
         // Get deployer private key from seed
@@ -31,7 +31,7 @@ contract DeployERC20Verified is Script {
         }
         require(deployed != address(0), "Deployment failed");
         
-        console.log("ERC20Verified deployed to:", deployed);
+        console.log("DafnyToken (DFY) deployed to:", deployed);
         console.log("Initial supply:", initialSupply);
         
         // Verify deployment by calling totalSupply()
