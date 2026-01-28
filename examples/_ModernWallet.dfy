@@ -12,7 +12,7 @@ class ModernWallet {
   invariant balance >= 0
   invariant transactionCount >= 0
   
-  method constructor()
+  constructor()
     ensures owner == msg.sender
     ensures balance == 0
   {

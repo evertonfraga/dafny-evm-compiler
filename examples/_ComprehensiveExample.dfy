@@ -27,7 +27,8 @@ class DeFiProtocol {
   // Multiple return values
   method getUserInfo(addr: address) returns (balance: uint256, lastUpdate: uint256)
   {
-    return users[addr].balance, users[addr].lastUpdate;
+    var user: User := users[addr];
+    return user.balance, user.lastUpdate;
   }
   
   // Dynamic arrays
@@ -46,21 +47,26 @@ class DeFiProtocol {
   payable method deposit()
     modifies this
   {
-    users[msg.sender].balance := users[msg.sender].balance + msg.value;
-    users[msg.sender].lastUpdate := block.timestamp;
+    var user: User := users[msg.sender];
+    user.balance := user.balance + msg.value;
+    user.lastUpdate := block.timestamp;
+    users[msg.sender] := user;
     totalDeposits := totalDeposits + msg.value;
     emit Deposit(msg.sender, msg.value);
   }
   
   method withdraw(amount: uint256)
     requires amount > 0
-    requires users[msg.sender].balance >= amount
     modifies this
   {
-    users[msg.sender].balance := users[msg.sender].balance - amount;
-    users[msg.sender].lastUpdate := block.timestamp;
-    totalDeposits := totalDeposits - amount;
-    emit Withdrawal(msg.sender, amount);
+    var user: User := users[msg.sender];
+    if (user.balance >= amount) {
+      user.balance := user.balance - amount;
+      user.lastUpdate := block.timestamp;
+      users[msg.sender] := user;
+      totalDeposits := totalDeposits - amount;
+      emit Withdrawal(msg.sender, amount);
+    }
   }
   
   // Modulo operator for fee calculation
@@ -86,7 +92,9 @@ class DeFiProtocol {
     for (var i: uint256 := start; i < end; i := i + 1) {
       if (i < userList.length) {
         var addr: address := userList[i];
-        users[addr].lastUpdate := block.timestamp;
+        var user: User := users[addr];
+        user.lastUpdate := block.timestamp;
+        users[addr] := user;
         count := count + 1;
       }
     }

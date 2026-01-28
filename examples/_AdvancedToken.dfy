@@ -13,7 +13,7 @@ class AdvancedToken {
 
   invariant totalSupply >= 0
 
-  method constructor(initialSupply: uint256)
+  constructor(initialSupply: uint256)
     requires initialSupply > 0
     ensures totalSupply == initialSupply
   {
