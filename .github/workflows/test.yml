@@ -70,10 +70,6 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Install Foundry dependencies
-        run: |
-          cd tests/foundry
-          forge install
       - name: Run foundry tests
         run: |
           cd tests/foundry

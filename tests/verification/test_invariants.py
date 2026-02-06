@@ -156,9 +156,6 @@ class TestInvariantViolations(unittest.TestCase):
         self.assertFalse(result['verified'])
         self.assertGreater(len(result['errors']), 0)
     
-    
-    @unittest.expectedFailure
-    
     def test_constructor_fails_to_establish_invariant(self):
         """Test that constructor not establishing invariant fails verification."""
         code = """
@@ -214,8 +211,6 @@ class TestInvariantViolations(unittest.TestCase):
         self.assertFalse(result['verified'])
         self.assertGreater(len(result['errors']), 0)
     
-    @unittest.expectedFailure
-    
     def test_multiple_invariants_one_violated(self):
         """Test that violating one of multiple invariants fails verification."""
         code = """
@@ -239,9 +234,6 @@ class TestInvariantViolations(unittest.TestCase):
         self.assertTrue(result['success'])
         self.assertFalse(result['verified'])
         self.assertGreater(len(result['errors']), 0)
-    
-    
-    @unittest.expectedFailure
     
     def test_invariant_violated_conditionally(self):
         """Test that conditional invariant violation is caught."""
