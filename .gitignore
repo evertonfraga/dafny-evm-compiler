@@ -70,6 +70,7 @@ foundry.lock
 # Documentation (except main files)
 *.md
 *.txt
+!requirements.txt
 !README.md
 !CONTRIBUTING.md
 !LICENSE.md
