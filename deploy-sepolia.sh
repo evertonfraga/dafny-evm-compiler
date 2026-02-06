@@ -10,10 +10,14 @@ if [ ! -f .account.txt ]; then
     exit 1
 fi
 
+# Load environment variables from .env
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
 # Check if RPC URL is set
 if [ -z "$SEPOLIA_RPC_URL" ]; then
-    echo "Error: SEPOLIA_RPC_URL environment variable not set"
-    echo "Example: export SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_KEY"
+    echo "Error: SEPOLIA_RPC_URL not set in .env file"
     exit 1
 fi
 

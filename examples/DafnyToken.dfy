@@ -1,11 +1,10 @@
 class DafnyToken {
   // Metadata
-  var name: string
-  var symbol: string
-  var totalSupply: uint256
-  var owner: address
-  var balances: mapping<address, uint256>
-  var allowances: mapping<address, mapping<address, uint256>>
+  public var symbol: bytes32
+  public var totalSupply: uint256
+  public var owner: address
+  public var balances: mapping<address, uint256>
+  public var allowances: mapping<address, mapping<address, uint256>>
 
   // Events
   event Transfer(from: address, to: address, amount: uint256)
@@ -24,8 +23,7 @@ class DafnyToken {
     ensures owner == msg.sender
     ensures balances[msg.sender] == initialSupply
   {
-    name := "Dafny Token";
-    symbol := "DFY";
+    symbol := 0x4446590000000000000000000000000000000000000000000000000000000000;
     totalSupply := initialSupply;
     owner := msg.sender;
     balances := balances[msg.sender := initialSupply];

@@ -137,11 +137,17 @@ class YulGenerator:
         
         # Execute constructor body if present
         if contract.constructor:
-            # Load constructor parameters from calldata
-            offset = 0
-            for param in contract.constructor.params:
-                code += f"    let {param.name} := calldataload({offset})\n"
-                offset += 32
+            # Load constructor parameters from end of bytecode (appended during deployment)
+            # Constructor params are appended to bytecode, so we need to read from codesize
+            if contract.constructor.params:
+                code += "    // Load constructor parameters from end of init code\n"
+                code += "    let _code_size := codesize()\n"
+                offset = 0
+                for i, param in enumerate(contract.constructor.params):
+                    # Parameters are at the end of the bytecode
+                    code += f"    codecopy({offset}, sub(_code_size, {(len(contract.constructor.params) - i) * 32}), 32)\n"
+                    code += f"    let {param.name} := mload({offset})\n"
+                    offset += 32
             
             for stmt in contract.constructor.body:
                 code += self._generate_statement(stmt, 2)

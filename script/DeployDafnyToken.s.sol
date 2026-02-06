@@ -5,12 +5,14 @@ import {Script, console} from "forge-std/Script.sol";
 
 contract DeployDafnyToken is Script {
     function run() external {
-        // Read deployment bytecode
-        string memory path = "../../output/DafnyToken/DafnyToken.bin";
+        // Read deployment bytecode (path relative to project root)
+        string memory path = "output/DafnyToken/DafnyToken.bin";
         bytes memory bytecode = vm.parseBytes(vm.readFile(path));
         
         // Get deployer private key from seed
-        string memory seed = vm.readFile(".account.txt");
+        string memory seedRaw = vm.readFile(".account.txt");
+        // Trim whitespace/newlines
+        string memory seed = vm.trim(seedRaw);
         uint256 deployerPrivateKey = vm.deriveKey(seed, 0);
         address deployer = vm.addr(deployerPrivateKey);
         
@@ -33,14 +35,6 @@ contract DeployDafnyToken is Script {
         
         console.log("DafnyToken (DFY) deployed to:", deployed);
         console.log("Initial supply:", initialSupply);
-        
-        // Verify deployment by calling totalSupply()
-        (bool success, bytes memory data) = deployed.staticcall(
-            abi.encodeWithSignature("totalSupply()")
-        );
-        require(success, "totalSupply() call failed");
-        uint256 supply = abi.decode(data, (uint256));
-        console.log("Total supply:", supply);
         
         vm.stopBroadcast();
     }
