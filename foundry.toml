@@ -1,0 +1,12 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+script = "script"
+fs_permissions = [
+    { access = "read", path = "./output" },
+    { access = "read", path = "./.account.txt" }
+]
+
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"

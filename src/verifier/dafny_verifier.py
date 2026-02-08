@@ -100,9 +100,123 @@ class DafnyVerifier:
         # Replace msg.sender with msg_sender
         source = re.sub(r'msg\.sender', 'msg_sender', source)
         
-        # Convert class invariants to comments (Dafny doesn't support class invariants)
-        # Match each invariant line separately
-        source = re.sub(r'^\s*invariant\s+(.+)$', r'  /* invariant \1 */', source, flags=re.MULTILINE)
+        # Convert class invariants to Valid() predicate pattern
+        lines = source.split('\n')
+        new_lines = []
+        invariants = []
+        in_class = False
+        class_indent = 0
+        added_valid = False
+        class_opening_brace_idx = -1
+        
+        for i, line in enumerate(lines):
+            # Check if we're entering a class
+            class_match = re.match(r'^(\s*)class\s+\w+', line)
+            if class_match:
+                in_class = True
+                class_indent = len(class_match.group(1))
+                invariants = []
+                added_valid = False
+                new_lines.append(line)
+                # Check if opening brace is on same line
+                if '{' in line:
+                    class_opening_brace_idx = len(new_lines) - 1
+            elif in_class:
+                # Track opening brace
+                if '{' in line and class_opening_brace_idx == -1:
+                    class_opening_brace_idx = len(new_lines)
+                    new_lines.append(line)
+                    continue
+                
+                # Check if this line is an invariant
+                inv_match = re.match(r'^\s*invariant\s+(.+)$', line)
+                if inv_match:
+                    invariants.append(inv_match.group(1).strip())
+                    continue  # Skip adding this line
+                
+                # Check if we should insert Valid() predicate
+                if invariants and not added_valid:
+                    # Insert before first var/method/constructor, or after opening brace if nothing else
+                    if re.match(r'^\s*(var|method|constructor|function)\s+', line):
+                        indent = ' ' * (class_indent + 2)
+                        new_lines.append(f'{indent}predicate Valid()')
+                        new_lines.append(f'{indent}  reads this')
+                        new_lines.append(f'{indent}{{')
+                        if len(invariants) == 1:
+                            new_lines.append(f'{indent}  {invariants[0]}')
+                        else:
+                            new_lines.append(f'{indent}  {" && ".join(invariants)}')
+                        new_lines.append(f'{indent}}}')
+                        new_lines.append('')
+                        added_valid = True
+                
+                # Check if we're exiting the class
+                if line.strip():
+                    current_indent = len(line) - len(line.lstrip())
+                    if current_indent <= class_indent and not line.strip().startswith('//'):
+                        # Add Valid() before closing if we haven't added it yet
+                        if invariants and not added_valid and re.match(r'^\s*\}', line):
+                            indent = ' ' * (class_indent + 2)
+                            new_lines.append(f'{indent}predicate Valid()')
+                            new_lines.append(f'{indent}  reads this')
+                            new_lines.append(f'{indent}{{')
+                            if len(invariants) == 1:
+                                new_lines.append(f'{indent}  {invariants[0]}')
+                            else:
+                                new_lines.append(f'{indent}  {" && ".join(invariants)}')
+                            new_lines.append(f'{indent}}}')
+                            new_lines.append('')
+                            added_valid = True
+                        in_class = False
+                
+                new_lines.append(line)
+            else:
+                new_lines.append(line)
+        
+        source = '\n'.join(new_lines)
+        
+        # Add Valid() requires/ensures to methods that modify state
+        # This enforces that invariants are maintained
+        lines = source.split('\n')
+        new_lines = []
+        i = 0
+        has_valid_predicate = 'predicate Valid()' in source
+        
+        while i < len(lines):
+            line = lines[i]
+            # Check if this is a method that modifies this
+            if re.match(r'\s*method\s+\w+\(', line) and has_valid_predicate:
+                new_lines.append(line)
+                # Look ahead to see if it has 'modifies this'
+                j = i + 1
+                has_modifies_this = False
+                has_requires_valid = False
+                has_ensures_valid = False
+                
+                while j < len(lines) and not re.match(r'\s*\{', lines[j]):
+                    if 'modifies this' in lines[j] or 'modifies `this' in lines[j]:
+                        has_modifies_this = True
+                    if 'requires Valid()' in lines[j]:
+                        has_requires_valid = True
+                    if 'ensures Valid()' in lines[j]:
+                        has_ensures_valid = True
+                    new_lines.append(lines[j])
+                    j += 1
+                
+                # Add Valid() checks if method modifies this
+                if has_modifies_this:
+                    indent = '    '
+                    if not has_requires_valid:
+                        new_lines.append(f'{indent}requires Valid()')
+                    if not has_ensures_valid:
+                        new_lines.append(f'{indent}ensures Valid()')
+                
+                i = j
+            else:
+                new_lines.append(line)
+                i += 1
+        
+        source = '\n'.join(new_lines)
         
         # Convert constructor to init method (Dafny doesn't have constructors in classes)
         # Also ensure it has 'modifies this'
@@ -112,27 +226,37 @@ class DafnyVerifier:
         
         source = re.sub(r'\bconstructor\s*\(', convert_constructor, source)
         
-        # Add 'modifies this' to init method if not present
-        # Find init method and check if it has modifies clause
+        # Add 'modifies this' and 'ensures Valid()' to init method if not present
         lines = source.split('\n')
         new_lines = []
         i = 0
+        has_valid_predicate = 'predicate Valid()' in source
+        
         while i < len(lines):
             line = lines[i]
             # Check if this is an init method declaration
             if re.match(r'\s*method init\(', line):
                 new_lines.append(line)
-                # Look ahead for modifies clause or opening brace
+                # Look ahead for modifies/ensures clauses or opening brace
                 j = i + 1
                 has_modifies = False
+                has_ensures_valid = False
+                
                 while j < len(lines) and not re.match(r'\s*\{', lines[j]):
                     if 'modifies' in lines[j]:
                         has_modifies = True
+                    if 'ensures Valid()' in lines[j]:
+                        has_ensures_valid = True
                     new_lines.append(lines[j])
                     j += 1
-                # If no modifies found, add it before the opening brace
-                if not has_modifies and j < len(lines):
-                    new_lines.append('    modifies this')
+                
+                # Add missing clauses before the opening brace
+                indent = '    '
+                if not has_modifies:
+                    new_lines.append(f'{indent}modifies this')
+                if not has_ensures_valid and has_valid_predicate:
+                    new_lines.append(f'{indent}ensures Valid()')
+                
                 i = j
             else:
                 new_lines.append(line)

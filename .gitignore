@@ -55,6 +55,11 @@ tests/foundry/out/
 tests/foundry/cache/
 tests/foundry/broadcast/
 tests/foundry/lib/
+out/
+cache/
+broadcast/
+lib/
+foundry.lock
 
 # Editor files
 *.swp
@@ -65,9 +70,13 @@ tests/foundry/lib/
 # Documentation (except main files)
 *.md
 *.txt
+!requirements.txt
 !README.md
 !CONTRIBUTING.md
 !LICENSE.md
+!DEPLOY.md
 
 # Session documentation
 docs/sessions/
+
+.env
