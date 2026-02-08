@@ -80,4 +80,5 @@ jobs:
       - name: Run foundry tests
         run: |
           cd tests/foundry
+          forge install foundry-rs/forge-std --no-git --no-commit
           forge test -vv

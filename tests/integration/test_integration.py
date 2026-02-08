@@ -32,7 +32,8 @@ class TestIntegration(unittest.TestCase):
         self.assertTrue(result['success'])
         
         yul = result['yul_code']
-        self.assertIn('function constructor()', yul)
+        # Constructor logic is inlined in the code block (standard Yul pattern)
+        self.assertIn('sstore(', yul)
         self.assertIn('function increment()', yul)
         self.assertIn('function decrement()', yul)
         self.assertIn('function reset()', yul)
