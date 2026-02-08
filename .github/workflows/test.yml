@@ -18,6 +18,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install -y solc
       - name: Run integration tests
         run: python3 -m pytest tests/integration/ -v
 
@@ -52,7 +55,11 @@ jobs:
       - name: Install Dafny
         run: dotnet tool install --global dafny
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install -y solc
       - name: Run verification tests
         run: python3 -m pytest tests/verification/ -v
 
