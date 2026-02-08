@@ -76,7 +76,18 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install -y solc
+      - name: Compile Dafny contracts
+        run: |
+          for dfy in examples/*.dfy; do
+            name=$(basename "$dfy" .dfy)
+            mkdir -p "output/$name"
+            python3 cli.py "$dfy" --no-verify -o "output/$name" || true
+          done
       - name: Run foundry tests
         run: |
           cd tests/foundry
